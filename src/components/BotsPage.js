@@ -1,48 +1,130 @@
-import React, { useState, useEffect } from "react";
-import YourBotArmy from "./YourBotArmy";
-import BotCollection from "./BotCollection";
+import React from "react";
+import BotsCollection from './BotCollection'
+import YourBotArmy from './YourBotArmy'
+import BotSpecs from './BotSpecs'
+import BotSearch from './BotSearch'
+import Filter from './Filter'
 
-function BotsPage() {
-  //start here with your code for step one
-  const [bots, setBots] = useState([]);
-
-  //a utility function to fetch data from the server
-  function fetchData() {
-    return fetch(`http://localhost:8002/bots`)
-      .then((resp) => resp.json())
-      .then((data) => {
-        setBots(data);
-      });
-  }
-  //run fetch whenever the page loads
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  //add bot to army when the bot is clicked
-
-  function enlistBot(bot) {
-    setBots(bots.map((b) => (b.id === bot.id ? { ...b, army: true } : b)));
+class BotsPage extends React.Component {
+  constructor(){
+    super()
+    this.state = {
+      allBots: [],
+      selectBot: undefined,
+      query: '',
+      filter: 'All'
+    }
   }
 
-  function removeBot(bot) {
-    setBots(bots.map((b) => (b.id === bot.id ? { ...b, army: false } : b)));
+  componentDidMount(){
+    fetch(' http://localhost:8002/bots')
+    .then(res => res.json())
+    .then(bots => this.setBots(bots))
+      .then(bots => this.setState({
+        allBots: bots
+      }))
   }
 
-  function deleteBot(bot) {
-    const deletedBot = bots.filter((b) => b.id !== bot.id);
-    setBots((bots) => deletedBot);
+  setBots = (bots) => {
+    return bots.map(bot => {
+      bot.owned = false
+      return bot
+    })
   }
-  return (
-    <div>
-      <YourBotArmy
-        bots={bots.filter((b) => b.army)}
-        removeBot={removeBot}
-        deleteBot={deleteBot}
-      />
-      <BotCollection bots={bots} enlistBot={enlistBot} deleteBot={deleteBot} />
-    </div>
-  );
+
+  clickBot = (bot) => {
+    this.setState({
+      selectBot: bot
+    })
+  }
+
+  addBot = (selectBot) => {
+    let x = this.state.allBots.map(bot => {
+      if(bot.id === selectBot.id){
+        bot.owned = !bot.owned
+        return bot
+      }else {
+        return bot
+      }
+    })
+    this.setState({
+      allBots: x
+    })
+  }
+
+  filterFreeBots = () => {
+    let freeBots = []
+    this.state.allBots.map(bot => {
+      if(bot.owned === false){
+        freeBots.push(bot)
+      }
+    })
+    if(this.state.filter !== 'All'){
+      freeBots = freeBots.filter(bot => 
+        bot.bot_class === this.state.filter
+      )
+    }
+    if(this.state.query){
+      freeBots = freeBots.filter(bot=> 
+        bot.name.toLowerCase().includes(this.state.query.toLowerCase())
+      )
+    }
+    return freeBots
+  }
+
+  filterOwnedBots = () => {
+    let ownedBots = []
+    this.state.allBots.map(bot => {
+      if(bot.owned === true){
+        ownedBots.push(bot)
+      }
+    })
+    let filtered = ownedBots.filter(bot=> {
+      return bot.name.toLowerCase().includes(this.state.query.toLowerCase())
+    })
+    return filtered
+  }
+
+  handleClear = () => {
+    this.setState({
+      query: ''
+    })
+  }
+
+  handleChange = (query) => {
+    this.setState({
+      query: query
+    })
+  }
+
+  clearSpec = () => {
+    this.setState({
+      selectBot: undefined
+    })
+  }
+
+  filterChange = (value) => {
+    this.setState({
+      filter: value
+    })
+  }
+
+  
+  render() {
+    console.log(this.state)
+    return (
+      <div>
+        <BotSearch handleClear={this.handleClear} handleChange={this.handleChange}/>
+        <br></br>
+        <Filter filterChange={this.filterChange}/>
+        <YourBotArmy bots={this.filterOwnedBots()} addBot={this.clickBot}/>
+        <br></br>
+        {this.state.selectBot ? <BotSpecs bot={this.state.selectBot} clearSpec={this.clearSpec} addBot={this.addBot} />: 
+          <BotsCollection bots={this.filterFreeBots()} addBot={this.clickBot}/>}
+      </div>
+    );
+  }
+
 }
 
 export default BotsPage;
